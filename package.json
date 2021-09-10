@@ -1,0 +1,24 @@
+{
+	"name": "whip",
+	"version": "1.0.0",
+	"description": "WHIP client",
+	"main": "whip.js",
+	"module": true,
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/medooze/whip-js.git"
+	},
+	"keywords": [
+		"webrtc",
+		"whip"
+	],
+	"author": "Sergio Garcia Murillo @ medooze",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/medooze/whip-js/issues"
+	},
+	"homepage": "https://github.com/medooze/whip-js#readme"
+}

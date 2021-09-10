@@ -166,12 +166,18 @@ export class WHIPClient
 		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
 
 		//If we don't have the resource url
-		if (this.resourceURL)
+		if (!this.resourceURL)
 			throw new Error("WHIP resource url not available yet");
 
 		//Send a delete
-		await fetch(this.resourceURLurl, {
+		await fetch(this.resourceURL, {
 			method: "DELETE",
 		});
+
+		//Close peerconnection
+		this.pc.close();
+
+		//Null
+		this.pc = null;
 	}
 };

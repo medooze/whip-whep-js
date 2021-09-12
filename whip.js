@@ -56,12 +56,12 @@ export class WHIPClient
 		//Set it and keep the promise
 		const sld =  pc.setLocalDescription(offer);
 
-    //The token can be optionally provided, set it if it was.
-    var headers = {
-      "Content-Type": "application/sdp"
-    };
-    if (token)
-      headers["Authorization"] = "Bearer " + token
+		//The token can be optionally provided, set it if it was.
+		var headers = {
+			"Content-Type": "application/sdp"
+		};
+		if (token)
+			headers["Authorization"] = "Bearer " + token
 
 		//Do the post request to the WHIP endpoint with the SDP offer
 		const fetched = await fetch(url, {

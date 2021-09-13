@@ -12,7 +12,7 @@ export class WHIPClient
 		this.endOfcandidates = false;
 	}
 
-	async publish(url, token, pc)
+	async publish(pc, url, token)
 	{
 		//If already publishing
 		if (this.pc)

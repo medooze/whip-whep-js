@@ -201,7 +201,7 @@ export class WHIPClient
 			for (const candidate of media.candidates)
 				fragment += "a=" + candidate.candidate + "\r\n";
 			if (endOfcandidates)
-				fragment += "a=end-of-candiadates\r\n";
+				fragment += "a=end-of-candidates\r\n";
 		}
 
 		//Request headers

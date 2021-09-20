@@ -18,7 +18,7 @@ export class WHIPClient
 		if (this.pc)
 			throw new Error("Already publishing")
 
-		//Store pc objcet and token
+		//Store pc object and token
 		this.token = token;
 		this.pc = pc;
 		
@@ -78,6 +78,11 @@ export class WHIPClient
 			body: offer.sdp,
 			headers
 		});
+
+		if (!fetched.ok)
+			throw new Error("Request rejected with status " + fetched.status)
+		if (!fetched.headers.get("location"))
+			throw new Error("Response missing location header")
 
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
@@ -219,14 +224,14 @@ export class WHIPClient
 			body: fragment,
 			headers
 		});
+		if (!fetched.ok)
+			throw new Error("Request rejected with status " + fetched.status)
 
 		//If we have got an answer
 		if (fetched.status==200)
 		{
-
 			//Get the SDP answer
 			const answer = await fetched.text();
-
 			//Get remote icename and password
 			const iceUsername = answer.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			const icePassword = answer.match(/a=ice-pwd:(.*)\r\n/)[1];
@@ -248,8 +253,19 @@ export class WHIPClient
 
 	async stop()
 	{
+		if (!this.pc) {
+			// Already stopped
+			return
+		}
+
 		//Cancel any pending timeout
 		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
+
+		//Close peerconnection
+		this.pc.close();
+
+		//Null
+		this.pc = null;
 
 		//If we don't have the resource url
 		if (!this.resourceURL)
@@ -268,11 +284,5 @@ export class WHIPClient
 			method: "DELETE",
 			headers
 		});
-
-		//Close peerconnection
-		this.pc.close();
-
-		//Null
-		this.pc = null;
 	}
 };

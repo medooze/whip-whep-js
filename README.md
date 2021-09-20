@@ -4,7 +4,7 @@ Simple WHIP client javascript module
 ## Example
 
 ```
-import {WHIPClient } from "whip.js"
+import { WHIPClient } from "whip.js"
 
 //Get mic+cam
 const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:true});
@@ -13,9 +13,10 @@ const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:true
 const pc = new RTCPeerConnection();
 
 //Send all tracks
-for (const track of stream.getTracks())
+for (const track of stream.getTracks()) {
 	//You could add simulcast too here
 	pc.addTrack(track);
+}
 
 //Create whip client
 const whip = new WHIPClient();

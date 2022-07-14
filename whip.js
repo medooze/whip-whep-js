@@ -60,9 +60,6 @@ export class WHIPClient
 		//Create SDP offer
 		const offer = await pc.createOffer();
 
-		//Set it and keep the promise
-		const sld =  pc.setLocalDescription(offer);
-
 		//Request headers
 		const headers = {
 			"Content-Type": "application/sdp"
@@ -82,11 +79,72 @@ export class WHIPClient
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
 
+		//Get current config
+		const config = pc.getConfiguration();
+
+		//If it has ice server info and it is not overriden by the client
+		if ((!config.iceServer || !config.iceServer.length) && fetched.headers.has("link"))
+		{
+			//ICe server config
+			config.iceServers = [];
+			//Get all servers links headers
+			const servers = fetched.headers.get("link").split(", ");
+			//For each one
+			for (const server of servers)
+			{
+				try {
+					let rel;
+					//Split in parts
+					const items = server.split(";");
+					//Create ice server
+					const iceServer = {
+						urls : items[0].trim().replace(/<(.*)>/, "$1").trim()
+					}
+					//For each other item
+					for (let i = 1; i < items.length; ++i)
+					{
+						//Split into key/val
+						const subitems = items[i].split("=");
+						//Get key in cammel case
+						const key = subitems[0].trim().replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
+						//Unquote value
+						const value = subitems[1] 
+							? subitems[1]
+								.trim()
+								.replaceAll('"', '')
+								.replaceAll("'", "")
+							: subitems[1];
+						//Check if it is the rel attribute
+						if (key == "rel")
+							//Get rel value
+							rel = value;
+						else
+							//Unquote value and set them
+							iceServer[key] = value
+					}
+					//Ensure it is an ice server
+					if (rel == "ice-server")
+						//Add to config
+						config.iceServers.push(iceServer);
+				} catch (e) {
+				}
+			}
+
+			//If any configured
+			if (config.iceServers.length)
+				//Set it
+				pc.setConfiguration(config);
+		}
+
 		//Get the SDP answer
 		const answer = await fetched.text();
 
-		//Wait until the offer was set locally
-		await sld;
+		//Schedule trickle on next tick
+		if (!this.iceTrickeTimeout)
+			this.iceTrickeTimeout = setTimeout(() => this.trickle(), 0);
+
+		//Set local description
+		await pc.setLocalDescription(offer);
 
 		// TODO: chrome is returning a wrong value, so don't use it for now
 		//try {
@@ -100,10 +158,6 @@ export class WHIPClient
 			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
 		//}
-
-		//Schedule trickle on next tick
-		if (!this.iceTrickeTimeout)
-			this.iceTrickeTimeout = setTimeout(()=>this.trickle(),0);
 
 		//And set remote description
 		await pc.setRemoteDescription({type:"answer",sdp: answer});
@@ -121,8 +175,6 @@ export class WHIPClient
 
 	async trickle()
 	{
-		let sld;
-
 		//Clear timeout
 		this.iceTrickeTimeout = null;
 
@@ -149,8 +201,8 @@ export class WHIPClient
 			//Update ice
 			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
-			//Set it and keep the promise
-			sld =  pc.setLocalDescription(offer);
+			//Set it
+			await  pc.setLocalDescription(offer);
 			//Clean end of candidates flag as new ones will be retrieved
 			endOfcandidates = false;
 		}
@@ -238,11 +290,8 @@ export class WHIPClient
 			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-ufrag:)(.*)\r\n/gm	, "$1" + iceUsername + "\r\n");
 			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-pwd:)(.*)\r\n/gm	, "$1" + icePassword + "\r\n");
 
-			//Wait until the offer was set locally
-			await sld;
-
 			//Set it
-			this.pc.setRemoteDescription(remoteDescription);
+			await this.pc.setRemoteDescription(remoteDescription);
 		}
 	}
 

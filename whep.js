@@ -197,7 +197,7 @@ export class WHEPClient {
 			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
 			//Set it
-			await pc.setLocalDescription(offer);
+			await this.pc.setLocalDescription(offer);
 			//Clean end of candidates flag as new ones will be retrieved
 			endOfcandidates = false;
 		}

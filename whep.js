@@ -333,7 +333,7 @@ export class WHEPClient extends EventTarget
 		{
 			//Add media to fragment
 			fragment +=
-				"m=" + media.kind + " RTP/AVP 0\r\n" +
+				"m=" + media.kind + " 9 RTP/AVP 0\r\n" +
 				"a=mid:" + media.mid + "\r\n";
 			//Add candidate
 			for (const candidate of media.candidates)

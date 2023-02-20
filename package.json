@@ -1,24 +1,21 @@
 {
-	"name": "whip",
+	"name": "whip-whep",
 	"version": "1.0.0",
-	"description": "WHIP client",
-	"main": "whip.js",
+	"description": "WHIP and WHEP clients",
 	"module": true,
-	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
-	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/medooze/whip-js.git"
+		"url": "git+https://github.com/medooze/whip-whep-js.git"
 	},
 	"keywords": [
 		"webrtc",
-		"whip"
+		"whip",
+		"whep"
 	],
 	"author": "Sergio Garcia Murillo @ medooze",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/medooze/whip-js/issues"
+		"url": "https://github.com/medooze/whip-whep-js/issues"
 	},
-	"homepage": "https://github.com/medooze/whip-js#readme"
+	"homepage": "https://github.com/medooze/whip-whep-js#readme"
 }

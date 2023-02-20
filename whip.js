@@ -84,54 +84,85 @@ export class WHIPClient
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
 
+		//Get all links headers
+		const linkHeaders  = fetched.headers.get("link").split(", ");
+
+		//Get the links
+		const links = {};
+
+		//For each one
+		for (const header of linkHeaders)
+		{
+			try
+			{
+				let rel, params = {};
+				//Split in parts
+				const items = header.split(";");
+				//Create url server
+				const url = items[0].trim().replace(/<(.*)>/, "$1").trim();
+				//For each other item
+				for (let i = 1; i < items.length; ++i)
+				{
+					//Split into key/val
+					const subitems = items[i].split("=");
+					//Get key
+					const key = subitems[0].trim();
+					//Unquote value
+					const value = subitems[1]
+						? subitems[1]
+							.trim()
+							.replaceAll('"', '')
+							.replaceAll("'", "")
+						: subitems[1];
+					//Check if it is the rel attribute
+					if (key == "rel")
+						//Get rel value
+						rel = value;
+					else
+						//Unquote value and set them
+						params[key] = value
+				}
+				//Ensure it is an ice server
+				if (!rel)
+					continue;
+				if (!links[rel])
+					links[rel]  = [];
+				//Add to config
+				links[rel].push({url, params});
+			} catch (e){
+				console.error(e)
+			}
+		}
+
 		//Get current config
 		const config = pc.getConfiguration();
 
 		//If it has ice server info and it is not overriden by the client
-		if ((!config.iceServer || !config.iceServer.length) && fetched.headers.has("link"))
+		if ((!config.iceServer || !config.iceServer.length) && links.hasOwnProperty("ice-server"))
 		{
 			//ICe server config
 			config.iceServers = [];
-			//Get all servers links headers
-			const servers = fetched.headers.get("link").split(", ");
+			
 			//For each one
-			for (const server of servers)
+			for (const server of links["ice-server"])
 			{
-				try {
-					let rel;
-					//Split in parts
-					const items = server.split(";");
+				try
+				{
 					//Create ice server
 					const iceServer = {
-						urls : items[0].trim().replace(/<(.*)>/, "$1").trim()
+						urls : server.url
 					}
-					//For each other item
-					for (let i = 1; i < items.length; ++i)
+					//For each other param
+					for (const [key,value] of Object.entries(server.params))
 					{
-						//Split into key/val
-						const subitems = items[i].split("=");
 						//Get key in cammel case
-						const key = subitems[0].trim().replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
-						//Unquote value
-						const value = subitems[1] 
-							? subitems[1]
-								.trim()
-								.replaceAll('"', '')
-								.replaceAll("'", "")
-							: subitems[1];
-						//Check if it is the rel attribute
-						if (key == "rel")
-							//Get rel value
-							rel = value;
-						else
-							//Unquote value and set them
-							iceServer[key] = value
+						const cammelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
+						//Unquote value and set them
+						iceServer[cammelCase] = value;
 					}
-					//Ensure it is an ice server
-					if (rel == "ice-server")
-						//Add to config
-						config.iceServers.push(iceServer);
-				} catch (e) {
+					//Add to config
+					config.iceServers.push(iceServer);
+				} catch (e){
 				}
 			}
 
@@ -201,6 +232,8 @@ export class WHIPClient
 		//If we need to restart
 		if (restartIce)
 		{
+			//Restart ice
+			pc.restartIce();
 			//Create a new offer
 			const offer = await this.pc.createOffer({iceRestart: true});
 			//Update ice
@@ -298,6 +331,25 @@ export class WHIPClient
 			//Set it
 			await this.pc.setRemoteDescription(remoteDescription);
 		}
+	}
+
+	async mute(muted)
+	{
+		//Request headers
+		const headers = {
+			"Content-Type": "application/json"
+		};
+
+		//If token is set
+		if (this.token)
+			headers["Authorization"] = "Bearer " + this.token;
+
+		//Do the post request to the WHIP resource
+		const fetched = await fetch(this.resourceURL, {
+			method: "POST",
+			body: JSON.stringify(muted),
+			headers
+		});
 	}
 
 	async stop()

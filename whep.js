@@ -1,7 +1,10 @@
-//import { EventEmitter } from "events";
 
-export class WHEPClient {
-	constructor() {
+
+export class WHEPClient extends EventTarget 
+{
+	constructor()
+	{
+		super();
 		//Ice properties
 		this.iceUsername = null;
 		this.icePassword = null;
@@ -10,7 +13,8 @@ export class WHEPClient {
 		this.endOfcandidates = false;
 	}
 
-	async view(pc, url, token) {
+	async view(pc, url, token)
+	{
 		//If already publishing
 		if (this.pc)
 			throw new Error("Already viewing")
@@ -20,8 +24,10 @@ export class WHEPClient {
 		this.pc = pc;
 
 		//Listen for state change events
-		pc.onconnectionstatechange = (event) => {
-			switch (pc.connectionState) {
+		pc.onconnectionstatechange = (event) =>
+		{
+			switch (pc.connectionState)
+			{
 				case "connected":
 					// The connection has become fully connected
 					break;
@@ -36,16 +42,19 @@ export class WHEPClient {
 		}
 
 		//Listen for candidates
-		pc.onicecandidate = (event) => {
+		pc.onicecandidate = (event) =>
+		{
 
-			if (event.candidate) {
+			if (event.candidate)
+			{
 				//Ignore candidates not from the first m line
 				if (event.candidate.sdpMLineIndex > 0)
 					//Skip
 					return;
 				//Store candidate
 				this.candidates.push(event.candidate);
-			} else {
+			} else
+			{
 				//No more candidates
 				this.endOfcandidates = true;
 			}
@@ -80,51 +89,128 @@ export class WHEPClient {
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
 
+		//Get all links headers
+		const linkHeaders  = fetched.headers.get("link").split(", ");
+
+		//Get the links
+		const links = {};
+
+		//For each one
+		for (const header of linkHeaders)
+		{
+			try
+			{
+				let rel, params = {};
+				//Split in parts
+				const items = header.split(";");
+				//Create url server
+				const url = items[0].trim().replace(/<(.*)>/, "$1").trim();
+				//For each other item
+				for (let i = 1; i < items.length; ++i)
+				{
+					//Split into key/val
+					const subitems = items[i].split("=");
+					//Get key
+					const key = subitems[0].trim();
+					//Unquote value
+					const value = subitems[1]
+						? subitems[1]
+							.trim()
+							.replaceAll('"', '')
+							.replaceAll("'", "")
+						: subitems[1];
+					//Check if it is the rel attribute
+					if (key == "rel")
+						//Get rel value
+						rel = value;
+					else
+						//Unquote value and set them
+						params[key] = value
+				}
+				//Ensure it is an ice server
+				if (!rel)
+					continue;
+				if (!links[rel])
+					links[rel]  = [];
+				//Add to config
+				links[rel].push({url, params});
+			} catch (e){
+				console.error(e)
+			}
+		}
+
+		//Get extensions url
+		if (links.hasOwnProperty("urn:ietf:params:whip:core:server-sent-events"))
+			//Get url
+			this.eventsUrl =  new URL(links["urn:ietf:params:whip:core:server-sent-events"][0].url, url);
+		if (links.hasOwnProperty("urn:ietf:params:whip:core:layer"))
+			this.layerUrl  = new URL(links["urn:ietf:params:whip:core:layer"][0].url, url);
+
+		//If we have an event url
+		if (this.eventsUrl)
+		{
+			//Request headers
+			const headers = {
+				"Content-Type": "application/json"
+			};
+
+			//If token is set
+			if (this.token)
+				headers["Authorization"] = "Bearer " + this.token;
+
+			//Do the post request to the WHIP resource
+			fetch(this.eventsUrl, {
+				method: "POST",
+				body: JSON.stringify(["active","inactive","layers","viewercount","updated"]),
+				headers
+			}).then((fetched)=>{
+				console.dir(fetched)
+				//If the event channel could be created
+				if (!fetched.ok)
+					return;
+				//Get the resource url
+				const sseUrl = new URL(fetched.headers.get("location"), this.eventsUrl);
+				//Open it
+				this.eventSource = new EventSource(sseUrl);
+				this.eventSource.onopen = (event) => console.log(event);
+				this.eventSource.onerror = (event) => console.log(event);
+				//Listen for events
+				this.eventSource.onmessage = (event) => {
+					console.dir(event);
+					this.dispatchEvent(event);
+				};
+			});
+		}
+
 		//Get current config
 		const config = pc.getConfiguration();
 
 		//If it has ice server info and it is not overriden by the client
-		if ((!config.iceServer || !config.iceServer.length) && fetched.headers.has("link")) {
+		if ((!config.iceServer || !config.iceServer.length) && links.hasOwnProperty("ice-server"))
+		{
 			//ICe server config
 			config.iceServers = [];
-			//Get all servers links headers
-			const servers = fetched.headers.get("link").split(", ");
+			
 			//For each one
-			for (const server of servers) {
-				try {
-					let rel;
-					//Split in parts
-					const items = server.split(";");
+			for (const server of links["ice-server"])
+			{
+				try
+				{
 					//Create ice server
 					const iceServer = {
-						urls: items[0].trim().replace(/<(.*)>/, "$1").trim()
+						urls : server.url
 					}
-					//For each other item
-					for (let i = 1; i < items.length; ++i) {
-						//Split into key/val
-						const subitems = items[i].split("=");
+					//For each other param
+					for (const [key,value] of Object.entries(server.params))
+					{
 						//Get key in cammel case
-						const key = subitems[0].trim().replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
-						//Unquote value
-						const value = subitems[1]
-							? subitems[1]
-								.trim()
-								.replaceAll('"', '')
-								.replaceAll("'", "")
-							: subitems[1];
-						//Check if it is the rel attribute
-						if (key == "rel")
-							//Get rel value
-							rel = value;
-						else
-							//Unquote value and set them
-							iceServer[key] = value
+						const cammelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
+						//Unquote value and set them
+						iceServer[cammelCase] = value;
 					}
-					//Ensure it is an ice server
-					if (rel == "ice-server")
-						//Add to config
-						config.iceServers.push(iceServer);
-				} catch (e) {
+					//Add to config
+					config.iceServers.push(iceServer);
+				} catch (e){
 				}
 			}
 
@@ -161,7 +247,8 @@ export class WHEPClient {
 		await pc.setRemoteDescription({ type: "answer", sdp: answer });
 	}
 
-	restart() {
+	restart()
+	{
 		//Set restart flag
 		this.restartIce = true;
 
@@ -170,7 +257,8 @@ export class WHEPClient {
 			this.iceTrickeTimeout = setTimeout(() => this.trickle(), 0);
 	}
 
-	async trickle() {
+	async trickle()
+	{
 		//Clear timeout
 		this.iceTrickeTimeout = null;
 
@@ -190,7 +278,10 @@ export class WHEPClient {
 		this.restartIce = false;
 
 		//If we need to restart
-		if (restartIce) {
+		if (restartIce)
+		{
+			//Restart ice
+			pc.restartIce();
 			//Create a new offer
 			const offer = await this.pc.createOffer({ iceRestart: true });
 			//Update ice
@@ -218,7 +309,8 @@ export class WHEPClient {
 				candidates: [],
 			};
 		//For each candidate
-		for (const candidate of candidates) {
+		for (const candidate of candidates)
+		{
 			//Get mid for candidate
 			const mid = candidate.sdpMid
 			//Get associated transceiver
@@ -237,7 +329,8 @@ export class WHEPClient {
 			media.candidates.push(candidate);
 		}
 		//For each media
-		for (const media of Object.values(medias)) {
+		for (const media of Object.values(medias))
+		{
 			//Add media to fragment
 			fragment +=
 				"m=" + media.kind + " RTP/AVP 0\r\n" +
@@ -268,7 +361,8 @@ export class WHEPClient {
 			throw new Error("Request rejected with status " + fetched.status)
 
 		//If we have got an answer
-		if (fetched.status == 200) {
+		if (fetched.status == 200)
+		{
 			//Get the SDP answer
 			const answer = await fetched.text();
 			//Get remote icename and password
@@ -287,8 +381,71 @@ export class WHEPClient {
 		}
 	}
 
-	async stop() {
-		if (!this.pc) {
+	async mute(muted)
+	{
+		//Request headers
+		const headers = {
+			"Content-Type": "application/json"
+		};
+
+		//If token is set
+		if (this.token)
+			headers["Authorization"] = "Bearer " + this.token;
+
+		//Do the post request to the WHIP resource
+		const fetched = await fetch(this.resourceURL, {
+			method: "POST",
+			body: JSON.stringify(muted),
+			headers
+		});
+	}
+
+	async selectLayer(layer)
+	{
+		if (!this.layerUrl)
+			throw new Error("WHIP resource does not support layer selection");
+
+		//Request headers
+		const headers = {
+			"Content-Type": "application/json"
+		};
+
+		//If token is set
+		if (this.token)
+			headers["Authorization"] = "Bearer " + this.token;
+
+		//Do the post request to the WHIP resource
+		const fetched = await fetch(this.layerUrl, {
+			method: "POST",
+			body: JSON.stringify(layer),
+			headers
+		});
+	}
+
+	async unselectLayer()
+	{
+		if (!this.layerUrl)
+			throw new Error("WHIP resource does not support layer selection");
+
+		
+		//Request headers
+		const headers = {};
+
+		//If token is set
+		if (this.token)
+			headers["Authorization"] = "Bearer " + this.token;
+
+		//Do the post request to the WHIP resource
+		const fetched = await fetch(this.layerUrl, {
+			method: "DELETE",
+			headers
+		});
+	}
+
+	async stop()
+	{
+		if (!this.pc)
+		{
 			// Already stopped
 			return
 		}

@@ -287,7 +287,7 @@ export class WHEPClient extends EventTarget
 		if (restartIce)
 		{
 			//Restart ice
-			pc.restartIce();
+			this.pc.restartIce();
 			//Create a new offer
 			const offer = await this.pc.createOffer({ iceRestart: true });
 			//Update ice

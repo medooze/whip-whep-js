@@ -113,7 +113,7 @@ export class WHEPClient extends EventTarget
 					for (let i = 1; i < items.length; ++i)
 					{
 						//Split into key/val
-						const subitems = items[i].split("=");
+						const subitems = items[i].split(/=(.*)/);
 						//Get key
 						const key = subitems[0].trim();
 						//Unquote value

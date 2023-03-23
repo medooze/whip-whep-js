@@ -95,47 +95,52 @@ export class WHEPClient extends EventTarget
 		//Get the links
 		const links = {};
 
-		//For each one
-		for (const header of linkHeaders)
+		//If the response contained any
+		if (fetched.headers.has("link"))
 		{
-			try
+		
+			//For each one
+			for (const header of linkHeaders)
 			{
-				let rel, params = {};
-				//Split in parts
-				const items = header.split(";");
-				//Create url server
-				const url = items[0].trim().replace(/<(.*)>/, "$1").trim();
-				//For each other item
-				for (let i = 1; i < items.length; ++i)
+				try
 				{
-					//Split into key/val
-					const subitems = items[i].split("=");
-					//Get key
-					const key = subitems[0].trim();
-					//Unquote value
-					const value = subitems[1]
-						? subitems[1]
-							.trim()
-							.replaceAll('"', '')
-							.replaceAll("'", "")
-						: subitems[1];
-					//Check if it is the rel attribute
-					if (key == "rel")
-						//Get rel value
-						rel = value;
-					else
-						//Unquote value and set them
-						params[key] = value
+					let rel, params = {};
+					//Split in parts
+					const items = header.split(";");
+					//Create url server
+					const url = items[0].trim().replace(/<(.*)>/, "$1").trim();
+					//For each other item
+					for (let i = 1; i < items.length; ++i)
+					{
+						//Split into key/val
+						const subitems = items[i].split("=");
+						//Get key
+						const key = subitems[0].trim();
+						//Unquote value
+						const value = subitems[1]
+							? subitems[1]
+								.trim()
+								.replaceAll('"', '')
+								.replaceAll("'", "")
+							: subitems[1];
+						//Check if it is the rel attribute
+						if (key == "rel")
+							//Get rel value
+							rel = value;
+						else
+							//Unquote value and set them
+							params[key] = value
+					}
+					//Ensure it is an ice server
+					if (!rel)
+						continue;
+					if (!links[rel])
+						links[rel]  = [];
+					//Add to config
+					links[rel].push({url, params});
+				} catch (e){
+					console.error(e)
 				}
-				//Ensure it is an ice server
-				if (!rel)
-					continue;
-				if (!links[rel])
-					links[rel]  = [];
-				//Add to config
-				links[rel].push({url, params});
-			} catch (e){
-				console.error(e)
 			}
 		}
 
@@ -149,6 +154,8 @@ export class WHEPClient extends EventTarget
 		//If we have an event url
 		if (this.eventsUrl)
 		{
+			//Get supported events
+			const events = links["urn:ietf:params:whip:core:server-sent-events"]["events"] || ["active","inactive","layers","viewercount","updated"];
 			//Request headers
 			const headers = {
 				"Content-Type": "application/json"
@@ -161,10 +168,9 @@ export class WHEPClient extends EventTarget
 			//Do the post request to the WHIP resource
 			fetch(this.eventsUrl, {
 				method: "POST",
-				body: JSON.stringify(["active","inactive","layers","viewercount","updated"]),
+				body: JSON.stringify(events),
 				headers
 			}).then((fetched)=>{
-				console.dir(fetched)
 				//If the event channel could be created
 				if (!fetched.ok)
 					return;
@@ -209,7 +215,7 @@ export class WHEPClient extends EventTarget
 						iceServer[cammelCase] = value;
 					}
 					//Add to config
-					config.iceServers.push(iceServer);
+					//config.iceServers.push(iceServer);
 				} catch (e){
 				}
 			}

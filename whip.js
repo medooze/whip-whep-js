@@ -84,53 +84,57 @@ export class WHIPClient
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
 
-		//Get all links headers
-		const linkHeaders  = fetched.headers.get("link").split(", ");
-
 		//Get the links
 		const links = {};
 
-		//For each one
-		for (const header of linkHeaders)
+		//If the response contained any
+		if (fetched.headers.has("link"))
 		{
-			try
+			//Get all links headers
+			const linkHeaders  = fetched.headers.get("link").split(", ");
+
+			//For each one
+			for (const header of linkHeaders)
 			{
-				let rel, params = {};
-				//Split in parts
-				const items = header.split(";");
-				//Create url server
-				const url = items[0].trim().replace(/<(.*)>/, "$1").trim();
-				//For each other item
-				for (let i = 1; i < items.length; ++i)
+				try
 				{
-					//Split into key/val
-					const subitems = items[i].split("=");
-					//Get key
-					const key = subitems[0].trim();
-					//Unquote value
-					const value = subitems[1]
-						? subitems[1]
-							.trim()
-							.replaceAll('"', '')
-							.replaceAll("'", "")
-						: subitems[1];
-					//Check if it is the rel attribute
-					if (key == "rel")
-						//Get rel value
-						rel = value;
-					else
-						//Unquote value and set them
-						params[key] = value
+					let rel, params = {};
+					//Split in parts
+					const items = header.split(";");
+					//Create url server
+					const url = items[0].trim().replace(/<(.*)>/, "$1").trim();
+					//For each other item
+					for (let i = 1; i < items.length; ++i)
+					{
+						//Split into key/val
+						const subitems = items[i].split("=");
+						//Get key
+						const key = subitems[0].trim();
+						//Unquote value
+						const value = subitems[1]
+							? subitems[1]
+								.trim()
+								.replaceAll('"', '')
+								.replaceAll("'", "")
+							: subitems[1];
+						//Check if it is the rel attribute
+						if (key == "rel")
+							//Get rel value
+							rel = value;
+						else
+							//Unquote value and set them
+							params[key] = value
+					}
+					//Ensure it is an ice server
+					if (!rel)
+						continue;
+					if (!links[rel])
+						links[rel]  = [];
+					//Add to config
+					links[rel].push({url, params});
+				} catch (e){
+					console.error(e)
 				}
-				//Ensure it is an ice server
-				if (!rel)
-					continue;
-				if (!links[rel])
-					links[rel]  = [];
-				//Add to config
-				links[rel].push({url, params});
-			} catch (e){
-				console.error(e)
 			}
 		}
 
@@ -194,7 +198,7 @@ export class WHIPClient
 			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
 		//}
-
+		
 		//And set remote description
 		await pc.setRemoteDescription({type:"answer",sdp: answer});
 	}

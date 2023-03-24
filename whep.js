@@ -89,15 +89,14 @@ export class WHEPClient extends EventTarget
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
 
-		//Get all links headers
-		const linkHeaders  = fetched.headers.get("link").split(", ");
-
 		//Get the links
 		const links = {};
 
 		//If the response contained any
 		if (fetched.headers.has("link"))
 		{
+			//Get all links headers
+			const linkHeaders  = fetched.headers.get("link").split(/,\s+(?=<)/)
 		
 			//For each one
 			for (const header of linkHeaders)
@@ -155,7 +154,9 @@ export class WHEPClient extends EventTarget
 		if (this.eventsUrl)
 		{
 			//Get supported events
-			const events = links["urn:ietf:params:whip:core:server-sent-events"]["events"] || ["active","inactive","layers","viewercount","updated"];
+			const events = links["urn:ietf:params:whip:core:server-sent-events"]["events"]
+				? links["urn:ietf:params:whip:core:server-sent-events"]["events"].split(" ")
+				: ["active","inactive","layers","viewercount"];
 			//Request headers
 			const headers = {
 				"Content-Type": "application/json"

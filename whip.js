@@ -91,7 +91,7 @@ export class WHIPClient
 		if (fetched.headers.has("link"))
 		{
 			//Get all links headers
-			const linkHeaders  = fetched.headers.get("link").split(", ");
+			const linkHeaders  = fetched.headers.get("link").split(/,\s+(?=<)/)
 
 			//For each one
 			for (const header of linkHeaders)

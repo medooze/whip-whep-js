@@ -107,7 +107,7 @@ export class WHIPClient
 					for (let i = 1; i < items.length; ++i)
 					{
 						//Split into key/val
-						const subitems = items[i].split("=");
+						const subitems = items[i].split(/=(.*)/);
 						//Get key
 						const key = subitems[0].trim();
 						//Unquote value
@@ -237,7 +237,7 @@ export class WHIPClient
 		if (restartIce)
 		{
 			//Restart ice
-			pc.restartIce();
+			this.pc.restartIce();
 			//Create a new offer
 			const offer = await this.pc.createOffer({iceRestart: true});
 			//Update ice

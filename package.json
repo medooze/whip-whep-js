@@ -1,6 +1,6 @@
 {
 	"name": "whip-whep",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "WHIP and WHEP clients",
 	"module": true,
 	"repository": {

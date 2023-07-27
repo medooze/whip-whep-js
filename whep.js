@@ -1,3 +1,9 @@
+const Extensions = {
+	Core: {
+		ServerSentEvents: "urn:ietf:params:whep:ext:core:server-sent-events",
+		Layer		: "urn:ietf:params:whep:ext:core:layer",
+	}
+}
 
 
 export class WHEPClient extends EventTarget 
@@ -144,18 +150,18 @@ export class WHEPClient extends EventTarget
 		}
 
 		//Get extensions url
-		if (links.hasOwnProperty("urn:ietf:params:whip:core:server-sent-events"))
+		if (links.hasOwnProperty(Extensions.Core.ServerSentEvents))
 			//Get url
-			this.eventsUrl =  new URL(links["urn:ietf:params:whip:core:server-sent-events"][0].url, url);
-		if (links.hasOwnProperty("urn:ietf:params:whip:core:layer"))
-			this.layerUrl  = new URL(links["urn:ietf:params:whip:core:layer"][0].url, url);
+			this.eventsUrl =  new URL(links[Extensions.Core.ServerSentEvents][0].url, url);
+		if (links.hasOwnProperty(Extensions.Core.Layer))
+			this.layerUrl  = new URL(links[Extensions.Core.Layer][0].url, url);
 
 		//If we have an event url
 		if (this.eventsUrl)
 		{
 			//Get supported events
-			const events = links["urn:ietf:params:whip:core:server-sent-events"]["events"]
-				? links["urn:ietf:params:whip:core:server-sent-events"]["events"].split(" ")
+			const events = links[Extensions.Core.ServerSentEvents]["events"]
+				? links[Extensions.Core.ServerSentEvents]["events"].split(" ")
 				: ["active","inactive","layers","viewercount"];
 			//Request headers
 			const headers = {
@@ -166,7 +172,7 @@ export class WHEPClient extends EventTarget
 			if (this.token)
 				headers["Authorization"] = "Bearer " + this.token;
 
-			//Do the post request to the WHIP resource
+			//Do the post request to the whep resource
 			fetch(this.eventsUrl, {
 				method: "POST",
 				body: JSON.stringify(events),
@@ -399,7 +405,7 @@ export class WHEPClient extends EventTarget
 		if (this.token)
 			headers["Authorization"] = "Bearer " + this.token;
 
-		//Do the post request to the WHIP resource
+		//Do the post request to the whep resource
 		const fetched = await fetch(this.resourceURL, {
 			method: "POST",
 			body: JSON.stringify(muted),
@@ -410,7 +416,7 @@ export class WHEPClient extends EventTarget
 	async selectLayer(layer)
 	{
 		if (!this.layerUrl)
-			throw new Error("WHIP resource does not support layer selection");
+			throw new Error("whep resource does not support layer selection");
 
 		//Request headers
 		const headers = {
@@ -421,7 +427,7 @@ export class WHEPClient extends EventTarget
 		if (this.token)
 			headers["Authorization"] = "Bearer " + this.token;
 
-		//Do the post request to the WHIP resource
+		//Do the post request to the whep resource
 		const fetched = await fetch(this.layerUrl, {
 			method: "POST",
 			body: JSON.stringify(layer),
@@ -432,7 +438,7 @@ export class WHEPClient extends EventTarget
 	async unselectLayer()
 	{
 		if (!this.layerUrl)
-			throw new Error("WHIP resource does not support layer selection");
+			throw new Error("whep resource does not support layer selection");
 
 		
 		//Request headers
@@ -442,7 +448,7 @@ export class WHEPClient extends EventTarget
 		if (this.token)
 			headers["Authorization"] = "Bearer " + this.token;
 
-		//Do the post request to the WHIP resource
+		//Do the post request to the whep resource
 		const fetched = await fetch(this.layerUrl, {
 			method: "DELETE",
 			headers

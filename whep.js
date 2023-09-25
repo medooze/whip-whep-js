@@ -370,7 +370,7 @@ export class WHEPClient extends EventTarget
 			body: fragment,
 			headers
 		});
-		if (!fetched.ok)
+		if (!fetched.ok && fetched.status != 501 && fetched.status != 405)
 			throw new Error("Request rejected with status " + fetched.status)
 
 		//If we have got an answer

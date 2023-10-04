@@ -1,3 +1,5 @@
+[![Build status](https://github.com/medooze/whip-whep-js/workflows/build/badge.svg)](https://github.com/medooze/whip-whep-js/actions?query=workflow%3Abuild) [![npm package](https://img.shields.io/npm/v/whip-whep.svg?label=npm:whip-whep)](https://www.npmjs.com/package/whip-whep)
+
 # whip.js
 WHIP client javascript module
 

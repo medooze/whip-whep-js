@@ -17,5 +17,15 @@
 	"bugs": {
 		"url": "https://github.com/medooze/whip-whep-js/issues"
 	},
-	"homepage": "https://github.com/medooze/whip-whep-js#readme"
+	"homepage": "https://github.com/medooze/whip-whep-js#readme",
+	"dependencies": {
+		"eslint": "^8.50.0",
+		"eslint-config-medooze": "^1.0.1"
+	},
+	"eslintConfig": {
+                "extends": [
+                        "medooze"
+                ]
+        }
+
 }

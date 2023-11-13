@@ -21,22 +21,6 @@ export class WHIPClient
 		//Store pc object and token
 		this.token = token;
 		this.pc = pc;
-		
-		//Listen for state change events
-		pc.onconnectionstatechange = (event) =>{
-			switch(pc.connectionState) {
-				case "connected":
-					// The connection has become fully connected
-					break;
-				case "disconnected":
-				case "failed":
-					// One or more transports has terminated unexpectedly or in an error
-					break;
-				case "closed":
-					// The connection has been closed
-					break;
-			}
-		}
 
 		//Listen for candidates
 		pc.onicecandidate = (event)=>{

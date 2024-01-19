@@ -1,5 +1,3 @@
-//import { EventEmitter } from "events";
-
 export class WHIPClient
 {
 	constructor()
@@ -21,10 +19,12 @@ export class WHIPClient
 		//Store pc object and token
 		this.token = token;
 		this.pc = pc;
-		
+
 		//Listen for state change events
-		pc.onconnectionstatechange = (event) =>{
-			switch(pc.connectionState) {
+		pc.onconnectionstatechange = (event) =>
+		{
+			switch (pc.connectionState)
+			{
 				case "connected":
 					// The connection has become fully connected
 					break;
@@ -39,23 +39,24 @@ export class WHIPClient
 		}
 
 		//Listen for candidates
-		pc.onicecandidate = (event)=>{
-
+		pc.onicecandidate = (event) =>
+		{
 			if (event.candidate) 
 			{
 				//Ignore candidates not from the first m line
-				if (event.candidate.sdpMLineIndex>0)
+				if (event.candidate.sdpMLineIndex > 0)
 					//Skip
 					return;
 				//Store candidate
-				this.candidates.push(event.candidate);                                         
-			} else {
+				this.candidates.push(event.candidate);
+			} else
+			{
 				//No more candidates
 				this.endOfcandidates = true;
 			}
-			//Schedule trickle on next tick
-			if (!this.iceTrickeTimeout)
-				this.iceTrickeTimeout = setTimeout(()=>this.trickle(),0);
+			//Schedule patch on next tick if there is no already a timer or doing restart
+			if (!this.iceTrickeTimeout && !this.restartIce)
+				this.iceTrickeTimeout = setTimeout(() => this.patch(), 0);
 		}
 		//Create SDP offer
 		const offer = await pc.createOffer();
@@ -91,7 +92,7 @@ export class WHIPClient
 		if (fetched.headers.has("link"))
 		{
 			//Get all links headers
-			const linkHeaders  = fetched.headers.get("link").split(/,\s+(?=<)/)
+			const linkHeaders = fetched.headers.get("link").split(/,\s+(?=<)/)
 
 			//For each one
 			for (const header of linkHeaders)
@@ -129,10 +130,11 @@ export class WHIPClient
 					if (!rel)
 						continue;
 					if (!links[rel])
-						links[rel]  = [];
+						links[rel] = [];
 					//Add to config
-					links[rel].push({url, params});
-				} catch (e){
+					links[rel].push({ url, params });
+				} catch (e)
+				{
 					console.error(e)
 				}
 			}
@@ -146,7 +148,7 @@ export class WHIPClient
 		{
 			//ICe server config
 			config.iceServers = [];
-			
+
 			//For each one
 			for (const server of links["ice-server"])
 			{
@@ -154,10 +156,10 @@ export class WHIPClient
 				{
 					//Create ice server
 					const iceServer = {
-						urls : server.url
+						urls: server.url
 					}
 					//For each other param
-					for (const [key,value] of Object.entries(server.params))
+					for (const [key, value] of Object.entries(server.params))
 					{
 						//Get key in cammel case
 						const cammelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
@@ -166,7 +168,8 @@ export class WHIPClient
 					}
 					//Add to config
 					config.iceServers.push(iceServer);
-				} catch (e){
+				} catch (e)
+				{
 				}
 			}
 
@@ -179,9 +182,12 @@ export class WHIPClient
 		//Get the SDP answer
 		const answer = await fetched.text();
 
-		//Schedule trickle on next tick
+		//Get etag
+		this.etag = fetched.headers.get("etag");
+
+		//Schedule patch on next tick
 		if (!this.iceTrickeTimeout)
-			this.iceTrickeTimeout = setTimeout(() => this.trickle(), 0);
+			this.iceTrickeTimeout = setTimeout(() => this.patch(), 0);
 
 		//Set local description
 		await pc.setLocalDescription(offer);
@@ -194,62 +200,65 @@ export class WHIPClient
 		//	this.iceUsername = local.usernameFragment;
 		//	this.icePassword = local.password;
 		//} catch (e) {
-			//Fallback for browsers not supporting ice transport
-			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
-			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
+		//Fallback for browsers not supporting ice transport
+		this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
+		this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
 		//}
-		
+
 		//And set remote description
-		await pc.setRemoteDescription({type:"answer",sdp: answer});
+		await pc.setRemoteDescription({ type: "answer", sdp: answer });
 	}
 
-	restart()
+	async restart()
 	{
-		//Set restart flag
-		this.restartIce = true;
+		//Clear any pendint timeout
+		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
 
-		//Schedule trickle on next tick
-		if (!this.iceTrickeTimeout)
-			this.iceTrickeTimeout = setTimeout(()=>this.trickle(),0);
+		//Clean candidates and end of candidates flag as new ones will be retrieved
+		this.candidates = [];
+		this.endOfcandidates = false;
+
+		//Restart ice
+		this.pc.restartIce();
+		//Create a new offer
+		const offer = await this.pc.createOffer({ iceRestart: true });
+		//Update ice
+		this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
+		this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
+		//Set it
+		await this.pc.setLocalDescription(offer);
+
+		//Set restart flag time
+		this.restartIce = new Date();
+
+		//Clear any pendint timeout
+		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
+
+		//patch
+		return this.patch();
 	}
 
-	async trickle()
+	async patch()
 	{
-		//Clear timeout
-		this.iceTrickeTimeout = null;
+		//Clear any pendint timeout
+		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
 
 		//Check if there is any pending data
-		if (!(this.candidates.length || this.endOfcandidates || this.restartIce) || !this.resourceURL )
+		if (!(this.candidates.length || this.endOfcandidates || this.restartIce) || !this.resourceURL)
 			//Do nothing
 			return;
 
 		//Get data
 		const candidates = this.candidates;
-		let endOfcandidates = this.endOfcandidates;
+		const endOfcandidates = this.endOfcandidates;
 		const restartIce = this.restartIce;
 
 		//Clean pending data before async operation
 		this.candidates = [];
 		this.endOfcandidates = false;
-		this.restartIce = false;
 
-		//If we need to restart
-		if (restartIce)
-		{
-			//Restart ice
-			this.pc.restartIce();
-			//Create a new offer
-			const offer = await this.pc.createOffer({iceRestart: true});
-			//Update ice
-			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
-			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
-			//Set it
-			await this.pc.setLocalDescription(offer);
-			//Clean end of candidates flag as new ones will be retrieved
-			endOfcandidates = false;
-		}
 		//Prepare fragment
-		let fragment = 
+		let fragment =
 			"a=ice-ufrag:" + this.iceUsername + "\r\n" +
 			"a=ice-pwd:" + this.icePassword + "\r\n";
 		//Get peerconnection transceivers
@@ -270,7 +279,7 @@ export class WHIPClient
 			//Get mid for candidate
 			const mid = candidate.sdpMid
 			//Get associated transceiver
-			const transceiver = transceivers.find(t=>t.mid==mid);
+			const transceiver = transceivers.find(t => t.mid == mid);
 			//Get media
 			let media = medias[mid];
 			//If not found yet
@@ -278,7 +287,7 @@ export class WHIPClient
 				//Create media object
 				media = medias[mid] = {
 					mid,
-					kind : transceiver.receiver.track.kind,
+					kind: transceiver.receiver.track.kind,
 					candidates: [],
 				};
 			//Add candidate
@@ -288,9 +297,9 @@ export class WHIPClient
 		for (const media of Object.values(medias))
 		{
 			//Add media to fragment
-			fragment += 
-				"m="+ media.kind + " 9 RTP/AVP 0\r\n" +
-				"a=mid:"+ media.mid + "\r\n";
+			fragment +=
+				"m=" + media.kind + " 9 UDP/TLS/RTP/SAVPF 0\r\n" +
+				"a=mid:" + media.mid + "\r\n";
 			//Add candidate
 			for (const candidate of media.candidates)
 				fragment += "a=" + candidate.candidate + "\r\n";
@@ -302,6 +311,14 @@ export class WHIPClient
 		const headers = {
 			"Content-Type": "application/trickle-ice-sdpfrag"
 		};
+
+		//If doing an ice restart
+		if (restartIce)
+			//Set if match to any
+			headers["If-Match"] = "*";
+		else if (this.etag)
+			//Set if match to last known etag
+			headers["If-Match"] = this.etag;
 
 		//If token is set
 		if (this.token)
@@ -316,24 +333,45 @@ export class WHIPClient
 		if (!fetched.ok)
 			throw new Error("Request rejected with status " + fetched.status)
 
-		//If we have got an answer
-		if (fetched.status==200)
+		//If we have got an answer for the ice restart
+		if (restartIce && fetched.status == 200)
 		{
+			//Get etag
+			this.etag = fetched.headers.get("etag");
+
 			//Get the SDP answer
 			const answer = await fetched.text();
 			//Get remote icename and password
 			const iceUsername = answer.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			const icePassword = answer.match(/a=ice-pwd:(.*)\r\n/)[1];
+			const candidates = Array.from(answer.matchAll(/(a=candidate:.*\r\n)/gm)).map(res => res[1])
 
 			//Get current remote rescription
 			const remoteDescription = this.pc.remoteDescription;
 
-			//Patch
-			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-ufrag:)(.*)\r\n/gm	, "$1" + iceUsername + "\r\n");
-			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-pwd:)(.*)\r\n/gm	, "$1" + icePassword + "\r\n");
+			//Change username and password
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-ufrag:)(.*)\r\n/gm, "$1" + iceUsername + "\r\n");
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-pwd:)(.*)\r\n/gm, "$1" + icePassword + "\r\n");
+
+			//Remove all candidates
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=candidate:.*\r\n)/gm, "");
+
+			//Add candidates
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(m=.*\r\n)/gm, "$1" + candidates.join());
 
 			//Set it
 			await this.pc.setRemoteDescription(remoteDescription);
+
+			//If we are still the last ice restart
+			if (this.restartIce == restartIce)
+			{
+				//Clean the flag
+				this.restartIce = null;
+				//Check if there is any pending data
+				if (this.candidates.length || this.endOfcandidates)
+					//Tricke again
+					this.patch();
+			}
 		}
 	}
 
@@ -358,7 +396,8 @@ export class WHIPClient
 
 	async stop()
 	{
-		if (!this.pc) {
+		if (!this.pc)
+		{
 			// Already stopped
 			return
 		}

@@ -50,7 +50,6 @@ export class WHEPClient extends EventTarget
 		//Listen for candidates
 		pc.onicecandidate = (event) =>
 		{
-
 			if (event.candidate)
 			{
 				//Ignore candidates not from the first m line
@@ -64,9 +63,9 @@ export class WHEPClient extends EventTarget
 				//No more candidates
 				this.endOfcandidates = true;
 			}
-			//Schedule trickle on next tick
-			if (!this.iceTrickeTimeout)
-				this.iceTrickeTimeout = setTimeout(() => this.trickle(), 0);
+			//Schedule patch on next tick if there is no already a timer or doing restart
+			if (!this.iceTrickeTimeout && !this.restartIce)
+				this.iceTrickeTimeout = setTimeout(() => this.patch(), 0);
 		}
 		//Create SDP offer
 		const offer = await pc.createOffer();
@@ -185,11 +184,11 @@ export class WHEPClient extends EventTarget
 				const sseUrl = new URL(fetched.headers.get("location"), this.eventsUrl);
 				//Open it
 				this.eventSource = new EventSource(sseUrl);
-				this.eventSource.onopen = (event) => console.log(event);
-				this.eventSource.onerror = (event) => console.log(event);
+				//this.eventSource.onopen = (event) => console.log(event);
+				//this.eventSource.onerror = (event) => console.log(event);
 				//Listen for events
 				this.eventSource.onmessage = (event) => {
-					console.dir(event);
+					//console.dir(event);
 					this.dispatchEvent(event);
 				};
 			});
@@ -260,20 +259,39 @@ export class WHEPClient extends EventTarget
 		await pc.setRemoteDescription({ type: "answer", sdp: answer });
 	}
 
-	restart()
+	async restart()
 	{
-		//Set restart flag
-		this.restartIce = true;
+		//Clear any pendint timeout
+		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
 
-		//Schedule trickle on next tick
-		if (!this.iceTrickeTimeout)
-			this.iceTrickeTimeout = setTimeout(() => this.trickle(), 0);
+		//Clean candidates and end of candidates flag as new ones will be retrieved
+		this.candidates = [];
+		this.endOfcandidates = false;
+
+		//Restart ice
+		this.pc.restartIce();
+		//Create a new offer
+		const offer = await this.pc.createOffer({ iceRestart: true });
+		//Update ice
+		this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
+		this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
+		//Set it
+		await this.pc.setLocalDescription(offer);
+
+		//Set restart flag time
+		this.restartIce = new Date();
+
+		//Clear any pendint timeout
+		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
+
+		//patch
+		return this.patch();
 	}
 
-	async trickle()
+	async patch()
 	{
-		//Clear timeout
-		this.iceTrickeTimeout = null;
+		//Clear any pendint timeout
+		this.iceTrickeTimeout = clearTimeout(this.iceTrickeTimeout);
 
 		//Check if there is any pending data
 		if (!(this.candidates.length || this.endOfcandidates || this.restartIce) || !this.resourceURL)
@@ -282,29 +300,13 @@ export class WHEPClient extends EventTarget
 
 		//Get data
 		const candidates = this.candidates;
-		let endOfcandidates = this.endOfcandidates;
+		const endOfcandidates = this.endOfcandidates;
 		const restartIce = this.restartIce;
 
 		//Clean pending data before async operation
 		this.candidates = [];
 		this.endOfcandidates = false;
-		this.restartIce = false;
 
-		//If we need to restart
-		if (restartIce)
-		{
-			//Restart ice
-			this.pc.restartIce();
-			//Create a new offer
-			const offer = await this.pc.createOffer({ iceRestart: true });
-			//Update ice
-			this.iceUsername = offer.sdp.match(/a=ice-ufrag:(.*)\r\n/)[1];
-			this.icePassword = offer.sdp.match(/a=ice-pwd:(.*)\r\n/)[1];
-			//Set it
-			await this.pc.setLocalDescription(offer);
-			//Clean end of candidates flag as new ones will be retrieved
-			endOfcandidates = false;
-		}
 		//Prepare fragment
 		let fragment =
 			"a=ice-ufrag:" + this.iceUsername + "\r\n" +
@@ -346,7 +348,7 @@ export class WHEPClient extends EventTarget
 		{
 			//Add media to fragment
 			fragment +=
-				"m=" + media.kind + " 9 RTP/AVP 0\r\n" +
+				"m=" + media.kind + " 9 UDP/TLS/RTP/SAVPF 0\r\n" +
 				"a=mid:" + media.mid + "\r\n";
 			//Add candidate
 			for (const candidate of media.candidates)
@@ -360,11 +362,19 @@ export class WHEPClient extends EventTarget
 			"Content-Type": "application/trickle-ice-sdpfrag"
 		};
 
+		//If doing an ice restart
+		if (restartIce)
+			//Set if match to any
+			headers["If-Match"] = "*";
+		else if (this.etag)
+			//Set if match to last known etag
+			headers["If-Match"] = this.etag;
+
 		//If token is set
 		if (this.token)
 			headers["Authorization"] = "Bearer " + this.token;
 
-		//Do the post request to the WHEP resource
+		//Do the post request to the WHIP resource
 		const fetched = await fetch(this.resourceURL, {
 			method: "PATCH",
 			body: fragment,
@@ -373,24 +383,45 @@ export class WHEPClient extends EventTarget
 		if (!fetched.ok)
 			throw new Error("Request rejected with status " + fetched.status)
 
-		//If we have got an answer
-		if (fetched.status == 200)
+		//If we have got an answer for the ice restart
+		if (restartIce && fetched.status == 200)
 		{
+			//Get etag
+			this.etag = fetched.headers.get("etag");
+
 			//Get the SDP answer
 			const answer = await fetched.text();
 			//Get remote icename and password
 			const iceUsername = answer.match(/a=ice-ufrag:(.*)\r\n/)[1];
 			const icePassword = answer.match(/a=ice-pwd:(.*)\r\n/)[1];
+			const candidates = Array.from(answer.matchAll(/(a=candidate:.*\r\n)/gm)).map(res => res[1])
 
 			//Get current remote rescription
 			const remoteDescription = this.pc.remoteDescription;
 
-			//Patch
+			//Change username and password
 			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-ufrag:)(.*)\r\n/gm, "$1" + iceUsername + "\r\n");
 			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=ice-pwd:)(.*)\r\n/gm, "$1" + icePassword + "\r\n");
 
+			//Remove all candidates
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=candidate:.*\r\n)/gm, "");
+
+			//Add candidates
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(m=.*\r\n)/gm, "$1" + candidates.join());
+
 			//Set it
 			await this.pc.setRemoteDescription(remoteDescription);
+
+			//If we are still the last ice restart
+			if (this.restartIce == restartIce)
+			{
+				//Clean the flag
+				this.restartIce = null;
+				//Check if there is any pending data
+				if (this.candidates.length || this.endOfcandidates)
+					//Tricke again
+					this.patch();
+			}
 		}
 	}
 

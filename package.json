@@ -2,7 +2,9 @@
 	"name": "whip-whep",
 	"version": "1.1.0",
 	"description": "WHIP and WHEP clients",
-	"module": true,
+	"scripts": {
+		"lint": "npx eslint . --ext .js"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/medooze/whip-whep-js.git"
@@ -18,13 +20,16 @@
 		"url": "https://github.com/medooze/whip-whep-js/issues"
 	},
 	"homepage": "https://github.com/medooze/whip-whep-js#readme",
-	"dependencies": {
+	"devDependencies": {
 		"eslint": "^8.50.0",
 		"eslint-config-medooze": "^1.0.1"
 	},
 	"eslintConfig": {
 		"extends": [
 			"medooze"
-		]
+		],
+		"parserOptions": {
+			"sourceType": "module"
+		}
 	}
 }

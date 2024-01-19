@@ -1,0 +1,69 @@
+name: build
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Set the version to the git tag
+        if: ${{ startsWith(github.event.ref, 'refs/tags/v') }}
+        run: |
+          npm version \
+            --no-commit-hooks \
+            --no-git-tag-version \
+            '${{ github.ref_name }}'
+      - name: Install dependencies
+        # TODO discuss the use of npm ci.
+        run: npm install
+      - name: Lint
+        # TODO when all lint errors are fixed, drop the "|| true" part.
+        run: npm run lint || true
+      # TODO run dtslint.
+      #      see https://github.com/microsoft/DefinitelyTyped-tools/tree/master/packages/dtslint
+      - name: Pack
+        run: npm pack
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifacts
+          path: |
+            *.tgz
+      - name: Test install
+        run: |
+          PACKAGE_PATH="$(ls "$PWD"/*.tgz)"
+          pushd "$(mktemp -q -d --suffix=.test)"
+          npm install --verbose "$PACKAGE_PATH"
+          popd
+  # see https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+  release:
+    name: Release
+    if: ${{ startsWith(github.event.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-22.04
+    needs:
+      - build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pushd artifacts
+          PACKAGE_PATH="$(ls "$PWD"/*.tgz)"
+          npm publish \
+            --verbose \
+            --access public \
+            "$PACKAGE_PATH"
+          popd
+      # TODO publish the *.d.ts files to https://github.com/DefinitelyTyped/DefinitelyTyped
+      #      OR do like described at https://github.com/microsoft/DefinitelyTyped-tools/tree/master/packages/dtslint#add-types-for-a-library-not-on-definitelytyped

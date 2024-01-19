@@ -1,3 +1,7 @@
+/* global navigator */
+/* global window */
+/* global RTCPeerConnection */
+
 export class WHIPClient
 {
 	constructor()
@@ -41,7 +45,7 @@ export class WHIPClient
 		//Listen for candidates
 		pc.onicecandidate = (event) =>
 		{
-			if (event.candidate) 
+			if (event.candidate)
 			{
 				//Ignore candidates not from the first m line
 				if (event.candidate.sdpMLineIndex > 0)
@@ -72,8 +76,8 @@ export class WHIPClient
 
 		//Do the post request to the WHIP endpoint with the SDP offer
 		const fetched = await fetch(url, {
-			method: "POST",
-			body: offer.sdp,
+			method  : "POST",
+			body    : offer.sdp,
 			headers
 		});
 
@@ -115,11 +119,11 @@ export class WHIPClient
 						const value = subitems[1]
 							? subitems[1]
 								.trim()
-								.replaceAll('"', '')
+								.replaceAll("\"", "")
 								.replaceAll("'", "")
 							: subitems[1];
 						//Check if it is the rel attribute
-						if (key == "rel")
+						if (key === "rel")
 							//Get rel value
 							rel = value;
 						else
@@ -159,17 +163,17 @@ export class WHIPClient
 						urls: server.url
 					}
 					//For each other param
-					for (const [key, value] of Object.entries(server.params))
+					for (const [ key, value ] of Object.entries(server.params))
 					{
 						//Get key in cammel case
-						const cammelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace('-', '').replace('_', ''))
+						const cammelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace("-", "").replace("_", ""))
 						//Unquote value and set them
 						iceServer[cammelCase] = value;
 					}
 					//Add to config
 					config.iceServers.push(iceServer);
-				} catch (e)
-				{
+				} catch (e) {
+					//Ignore errors
 				}
 			}
 
@@ -258,9 +262,9 @@ export class WHIPClient
 		this.endOfcandidates = false;
 
 		//Prepare fragment
-		let fragment =
-			"a=ice-ufrag:" + this.iceUsername + "\r\n" +
-			"a=ice-pwd:" + this.icePassword + "\r\n";
+		let fragment
+			= "a=ice-ufrag:" + this.iceUsername + "\r\n"
+			+ "a=ice-pwd:" + this.icePassword + "\r\n";
 		//Get peerconnection transceivers
 		const transceivers = this.pc.getTransceivers();
 		//Get medias
@@ -269,9 +273,9 @@ export class WHIPClient
 		if (candidates.length || endOfcandidates)
 			//Create media object for first media always
 			medias[transceivers[0].mid] = {
-				mid: transceivers[0].mid,
-				kind: transceivers[0].receiver.track.kind,
-				candidates: [],
+				mid         : transceivers[0].mid,
+				kind        : transceivers[0].receiver.track.kind,
+				candidates  : [],
 			};
 		//For each candidate
 		for (const candidate of candidates)
@@ -279,7 +283,7 @@ export class WHIPClient
 			//Get mid for candidate
 			const mid = candidate.sdpMid
 			//Get associated transceiver
-			const transceiver = transceivers.find(t => t.mid == mid);
+			const transceiver = transceivers.find(t => t.mid === mid);
 			//Get media
 			let media = medias[mid];
 			//If not found yet
@@ -287,8 +291,8 @@ export class WHIPClient
 				//Create media object
 				media = medias[mid] = {
 					mid,
-					kind: transceiver.receiver.track.kind,
-					candidates: [],
+					kind        : transceiver.receiver.track.kind,
+					candidates  : [],
 				};
 			//Add candidate
 			media.candidates.push(candidate);
@@ -297,9 +301,9 @@ export class WHIPClient
 		for (const media of Object.values(medias))
 		{
 			//Add media to fragment
-			fragment +=
-				"m=" + media.kind + " 9 UDP/TLS/RTP/SAVPF 0\r\n" +
-				"a=mid:" + media.mid + "\r\n";
+			fragment
+				+= "m=" + media.kind + " 9 UDP/TLS/RTP/SAVPF 0\r\n"
+				+ "a=mid:" + media.mid + "\r\n";
 			//Add candidate
 			for (const candidate of media.candidates)
 				fragment += "a=" + candidate.candidate + "\r\n";
@@ -326,15 +330,15 @@ export class WHIPClient
 
 		//Do the post request to the WHIP resource
 		const fetched = await fetch(this.resourceURL, {
-			method: "PATCH",
-			body: fragment,
+			method  : "PATCH",
+			body    : fragment,
 			headers
 		});
-		if (!fetched.ok && fetched.status != 501 && fetched.status != 405)
+		if (!fetched.ok && fetched.status !== 501 && fetched.status !== 405)
 			throw new Error("Request rejected with status " + fetched.status)
 
 		//If we have got an answer for the ice restart
-		if (restartIce && fetched.status == 200)
+		if (restartIce && fetched.status === 200)
 		{
 			//Get etag
 			this.etag = fetched.headers.get("etag");
@@ -363,7 +367,7 @@ export class WHIPClient
 			await this.pc.setRemoteDescription(remoteDescription);
 
 			//If we are still the last ice restart
-			if (this.restartIce == restartIce)
+			if (this.restartIce === restartIce)
 			{
 				//Clean the flag
 				this.restartIce = null;
@@ -388,8 +392,8 @@ export class WHIPClient
 
 		//Do the post request to the WHIP resource
 		const fetched = await fetch(this.resourceURL, {
-			method: "POST",
-			body: JSON.stringify(muted),
+			method  : "POST",
+			body    : JSON.stringify(muted),
 			headers
 		});
 	}
@@ -429,4 +433,4 @@ export class WHIPClient
 			headers
 		});
 	}
-};
+}

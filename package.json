@@ -1,6 +1,6 @@
 {
 	"name": "whip-whep",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "WHIP and WHEP clients",
 	"scripts": {
 		"precommit": "npm run-script lint",

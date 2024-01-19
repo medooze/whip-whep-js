@@ -12,12 +12,12 @@ import { WHIPClient } from "whip.js"
 const stream = await navigator.mediaDevices.getUserMedia({audio:true, video:true});
 
 //Create peerconnection
-const pc = new RTCPeerConnection();
+const pc = new RTCPeerConnection({ bundlePolicy: "max-bundle" });
 
 //Send all tracks
 for (const track of stream.getTracks()) {
 	//You could add simulcast too here
-	pc.addTrack(track);
+	pc.addTrack(track, { 'direction': 'sendonly' });
 }
 
 //Create whip client
@@ -40,7 +40,7 @@ WHEP client javascript module
 import { WHEPClient } from "whep.js"
 
 //Create peerconnection
-const pc = window.pc = new RTCPeerConnection();
+const pc = window.pc = new RTCPeerConnection({ bundlePolicy: "max-bundle" });
 
 //Add recv only transceivers
 pc.addTransceiver("audio");

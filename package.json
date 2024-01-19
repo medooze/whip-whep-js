@@ -1,6 +1,6 @@
 {
 	"name": "whip-whep",
-	"version": "1.0.5",
+	"version": "1.1.0",
 	"description": "WHIP and WHEP clients",
 	"module": true,
 	"repository": {
@@ -23,8 +23,8 @@
 		"eslint-config-medooze": "^1.0.1"
 	},
 	"eslintConfig": {
-                "extends": [
-                        "medooze"
-                ]
-        }
+		"extends": [
+			"medooze"
+		]
+	}
 }

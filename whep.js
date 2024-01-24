@@ -163,8 +163,8 @@ export class WHEPClient extends EventTarget
 		if (this.eventsUrl)
 		{
 			//Get supported events
-			const events = links[Extensions.Core.ServerSentEvents]["events"]
-				? links[Extensions.Core.ServerSentEvents]["events"].split(" ")
+			const events = links[Extensions.Core.ServerSentEvents][0].params.events
+				? links[Extensions.Core.ServerSentEvents][0].params.events.split(",")
 				: [ "active", "inactive", "layers", "viewercount" ];
 			//Request headers
 			const headers = {

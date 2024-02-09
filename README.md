@@ -17,7 +17,7 @@ const pc = new RTCPeerConnection({ bundlePolicy: "max-bundle" });
 //Send all tracks
 for (const track of stream.getTracks()) {
 	//You could add simulcast too here
-	pc.addTrack(track, { 'direction': 'sendonly' });
+	pc.addTransceiver(track, { 'direction': 'sendonly' });
 }
 
 //Create whip client

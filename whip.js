@@ -12,6 +12,9 @@ export class WHIPClient
 		//Pending candidadtes
 		this.candidates = [];
 		this.endOfcandidates = false;
+
+		this.onOffer = offer => offer;
+		this.onAnswer = answer => answer;
 	}
 
 	async publish(pc, url, token)
@@ -64,6 +67,7 @@ export class WHIPClient
 		}
 		//Create SDP offer
 		const offer = await pc.createOffer();
+		offer.sdp = this.onOffer(offer.sdp);
 
 		//Request headers
 		const headers = {
@@ -210,7 +214,7 @@ export class WHIPClient
 		//}
 
 		//And set remote description
-		await pc.setRemoteDescription({ type: "answer", sdp: answer });
+		await pc.setRemoteDescription({ type: "answer", sdp: this.onAnswer(answer) });
 	}
 
 	async restart()

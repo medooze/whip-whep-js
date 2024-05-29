@@ -219,10 +219,10 @@ export class WHEPClient extends EventTarget
 					//For each other param
 					for (const [ key, value ] of Object.entries(server.params))
 					{
-						//Get key in cammel case
-						const cammelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace("-", "").replace("_", ""))
+						//Get key in camel case
+						const camelCase = key.replace(/([-_][a-z])/ig, $1 => $1.toUpperCase().replace("-", "").replace("_", ""))
 						//Unquote value and set them
-						iceServer[cammelCase] = value;
+						iceServer[camelCase] = value;
 					}
 					//Add to config
 					config.iceServers.push(iceServer);

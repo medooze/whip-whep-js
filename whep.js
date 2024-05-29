@@ -242,7 +242,7 @@ export class WHEPClient extends EventTarget
 
 		//Schedule trickle on next tick
 		if (!this.iceTrickeTimeout)
-			this.iceTrickeTimeout = setTimeout(() => this.trickle(), 0);
+			this.iceTrickeTimeout = setTimeout(() => this.patch(), 0);
 
 		//Set local description
 		await pc.setLocalDescription(offer);

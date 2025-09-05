@@ -365,8 +365,7 @@ export class WHIPClient
 			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(a=candidate:.*\r\n)/gm, "");
 
 			//Add candidates
-			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(m=.*\r\n)/gm, "$1" + candidates.join());
-
+			remoteDescription.sdp = remoteDescription.sdp.replaceAll(/(m=.*\r\n)/gm, "$1" + candidates.join(''));
 			//Set it
 			await this.pc.setRemoteDescription(remoteDescription);
 

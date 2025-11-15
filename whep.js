@@ -26,6 +26,12 @@ export class WHEPClient extends EventTarget
 		this.onAnswer = answer => answer;
 	}
 
+	throwWithResponse(msg, response) {
+		const e = new Error(msg);
+		e.response = response;
+		throw e;
+	}
+
 	async view(pc, url, token)
 	{
 		//If already publishing
@@ -95,9 +101,9 @@ export class WHEPClient extends EventTarget
 		});
 
 		if (!fetched.ok)
-			throw new Error("Request rejected with status " + fetched.status)
+			this.throwWithResponse("Request rejected with status " + fetched.status, fetched)
 		if (!fetched.headers.get("location"))
-			throw new Error("Response missing location header")
+			this.throwWithResponse("Response missing location header", fetched)
 
 		//Get the resource url
 		this.resourceURL = new URL(fetched.headers.get("location"), url);
@@ -390,7 +396,7 @@ export class WHEPClient extends EventTarget
 			headers
 		});
 		if (!fetched.ok && fetched.status !== 501 && fetched.status !== 405)
-			throw new Error("Request rejected with status " + fetched.status)
+			this.throwWithResponse("Request rejected with status " + fetched.status, fetched)
 
 		//If we have got an answer for the ice restart
 		if (restartIce && fetched.status === 200)

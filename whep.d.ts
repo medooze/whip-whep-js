@@ -7,4 +7,6 @@ export declare class WHEPClient extends EventTarget {
     stop(): Promise<void>;
     selectLayer(): Promise<void>;
     unselectLayer(): Promise<void>;
+    onOffer(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit;
+    onAnswer(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit;
 }

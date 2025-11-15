@@ -5,4 +5,6 @@ export declare class WHIPClient {
     patch(): Promise<void>;
     mute(muted: any): Promise<void>;
     stop(): Promise<void>;
+    onOffer(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit;
+    onAnswer(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit;
 }
